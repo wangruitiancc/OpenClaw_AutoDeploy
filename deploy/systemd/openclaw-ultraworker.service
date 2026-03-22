@@ -1,0 +1,21 @@
+[Unit]
+Description=OpenClaw AutoDeploy ultraworker
+After=network-online.target docker.service openclaw-control-plane.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=simple
+User=openclaw
+Group=openclaw
+WorkingDirectory=/opt/openclaw-autodeploy
+EnvironmentFile=/etc/openclaw-autodeploy/ultraworker.env
+ExecStart=/opt/openclaw-autodeploy/bin/ultraworker --config /etc/openclaw-autodeploy/config.yaml
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

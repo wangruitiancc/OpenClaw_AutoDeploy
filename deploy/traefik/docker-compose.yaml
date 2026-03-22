@@ -1,0 +1,17 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: openclaw-traefik
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - traefik-certificates:/certificates
+    environment:
+      - TZ=UTC
+
+volumes:
+  traefik-certificates:
+    name: openclaw-traefik-certificates

@@ -1,0 +1,103 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: openclaw_autodeploy
+      POSTGRES_USER: openclaw
+      POSTGRES_PASSWORD: openclaw
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openclaw -d openclaw_autodeploy"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    image: migrate/migrate:v4.18.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../migrations:/migrations:ro
+    command:
+      - "-path=/migrations"
+      - "-database=postgres://openclaw:openclaw@postgres:5432/openclaw_autodeploy?sslmode=disable"
+      - "up"
+    restart: "no"
+
+  seed:
+    image: postgres:16
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ../scripts:/scripts:ro
+    environment:
+      PGPASSWORD: openclaw
+    command: ["sh", "-lc", "psql -h postgres -U openclaw -d openclaw_autodeploy -f /scripts/seed.sql"]
+    restart: "no"
+
+  control-plane-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        TARGET: control-plane-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    command: ["--config", "/config/config.local.yaml"]
+    environment:
+      OPENCLAW_DATABASE_URL: postgres://openclaw:openclaw@postgres:5432/openclaw_autodeploy?sslmode=disable
+      OPENCLAW_RUNTIME_WORKSPACE_ROOT: /workspace/tenants
+      OPENCLAW_RUNTIME_DOCKER_NETWORK: bridge
+      OPENCLAW_RUNTIME_BOOTSTRAP_MOUNT_PATH: /bootstrap
+      OPENCLAW_RUNTIME_DATA_MOUNT_PATH: /data
+      OPENCLAW_RUNTIME_BASE_DOMAIN: localtest.me
+      OPENCLAW_SECURITY_MASTER_KEY: replace-with-local-dev-secret
+      OPENCLAW_WORKER_NAME: ultraworker
+      OPENCLAW_WORKER_POLL_INTERVAL: 5s
+      OPENCLAW_WORKER_HEARTBEAT_TTL: 20s
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../config:/config:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - openclaw-workspace:/workspace
+
+  ultraworker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        TARGET: ultraworker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    command: ["--config", "/config/config.local.yaml"]
+    environment:
+      OPENCLAW_DATABASE_URL: postgres://openclaw:openclaw@postgres:5432/openclaw_autodeploy?sslmode=disable
+      OPENCLAW_RUNTIME_WORKSPACE_ROOT: /workspace/tenants
+      OPENCLAW_RUNTIME_DOCKER_NETWORK: bridge
+      OPENCLAW_RUNTIME_BOOTSTRAP_MOUNT_PATH: /bootstrap
+      OPENCLAW_RUNTIME_DATA_MOUNT_PATH: /data
+      OPENCLAW_RUNTIME_BASE_DOMAIN: localtest.me
+      OPENCLAW_SECURITY_MASTER_KEY: replace-with-local-dev-secret
+      OPENCLAW_WORKER_NAME: ultraworker
+      OPENCLAW_WORKER_POLL_INTERVAL: 5s
+      OPENCLAW_WORKER_HEARTBEAT_TTL: 20s
+    volumes:
+      - ../config:/config:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - openclaw-workspace:/workspace
+
+volumes:
+  postgres-data:
+  openclaw-workspace:

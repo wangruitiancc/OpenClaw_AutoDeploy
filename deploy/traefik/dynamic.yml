@@ -1,0 +1,12 @@
+http:
+  routers:
+    dashboard:
+      rule: "Host(`traefik.localtest.me`)"
+      service: api@internal
+      entrypoints: web
+
+  services:
+    openclaw-host:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:18789"
