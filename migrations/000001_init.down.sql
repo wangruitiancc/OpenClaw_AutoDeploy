@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS worker_heartbeats;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS tenant_instances;
+DROP TABLE IF EXISTS deployment_jobs;
+DROP TABLE IF EXISTS tenant_secrets;
+DROP TABLE IF EXISTS tenant_profiles;
+DROP TABLE IF EXISTS image_catalog;
+DROP TABLE IF EXISTS deployment_templates;
+DROP TABLE IF EXISTS tenants;
