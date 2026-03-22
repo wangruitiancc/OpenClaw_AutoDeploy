@@ -1,0 +1,24 @@
+api:
+  listen_addr: ":8080"
+
+database:
+  url: "postgres://openclaw:openclaw@127.0.0.1:5432/openclaw_autodeploy?sslmode=disable"
+
+runtime:
+  workspace_root: "/srv/openclaw/tenants"
+  docker_network: "traefik-public"
+  image_registry_prefix: "ghcr.io/openclaw"
+  bootstrap_mount_path: "/bootstrap"
+  data_mount_path: "/data"
+  base_domain: "example.com"
+  health_poll_interval: "3s"
+  health_timeout: "60s"
+
+security:
+  master_key: "replace-with-32-byte-secret"
+  static_token: "replace-with-your-api-token"
+
+worker:
+  name: "ultraworker"
+  poll_interval: "15s"
+  heartbeat_ttl: "45s"

@@ -1,0 +1,23 @@
+api:
+  listen_addr: ":8080"
+
+database:
+  url: "postgres://openclaw:openclaw@postgres:5432/openclaw_autodeploy?sslmode=disable"
+
+runtime:
+  workspace_root: "/workspace/tenants"
+  docker_network: "bridge"
+  image_registry_prefix: "docker.io/library"
+  bootstrap_mount_path: "/bootstrap"
+  data_mount_path: "/data"
+  base_domain: "localtest.me"
+  health_poll_interval: "3s"
+  health_timeout: "60s"
+
+security:
+  master_key: "replace-with-local-dev-secret"
+
+worker:
+  name: "ultraworker"
+  poll_interval: "5s"
+  heartbeat_ttl: "20s"
