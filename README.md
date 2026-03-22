@@ -2,6 +2,10 @@
 
 Backend control plane for provisioning per-tenant OpenClaw containers from PostgreSQL-backed tenant data.
 
+[English](README.md) | [中文](docs/zh/architecture-design.md)
+
+---
+
 ## Components
 
 - **control-plane-api** — REST API server on `:8080`
@@ -148,3 +152,12 @@ LLM API keys are stored encrypted in the database and allocated to tenants via t
 3. Allocate to tenant: `openclawctl tenant allocate-llm-key --tenant <ID> --provider <ID> --key-id <KEY_ID>`
 
 The allocated key is injected as `{PROVIDER_NAME}_API_KEY` env var into the tenant container.
+
+---
+
+## Documentation (文档)
+
+| Language | Architecture | API Reference | CLI Reference | Roadmap |
+|----------|-------------|---------------|---------------|---------|
+| English | [docs/en/architecture-design.md](docs/en/architecture-design.md) | [docs/en/api-reference.md](docs/en/api-reference.md) | [docs/en/cli-reference.md](docs/en/cli-reference.md) | [docs/en/implementation-roadmap.md](docs/en/implementation-roadmap.md) |
+| 中文 | [docs/zh/architecture-design.md](docs/zh/architecture-design.md) | [docs/zh/api-reference.md](docs/zh/api-reference.md) | [docs/zh/cli-reference.md](docs/zh/cli-reference.md) | [docs/zh/implementation-roadmap.md](docs/zh/implementation-roadmap.md) |
