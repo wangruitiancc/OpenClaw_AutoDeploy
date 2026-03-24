@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"openclaw-autodeploy/internal/client"
 	"openclaw-autodeploy/internal/domain"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -193,7 +195,102 @@ func newTenantCmd(options *Options) *cobra.Command {
 	list.Flags().StringVar(&listExternalUserID, "external-user-id", "", "Filter by external user ID")
 	list.Flags().StringVar(&listSlug, "slug", "", "Filter by slug")
 
-	cmd.AddCommand(create, get, list)
+	insert := newTenantInsertCmd()
+	cmd.AddCommand(create, get, list, insert)
+	return cmd
+}
+
+func newTenantInsertCmd() *cobra.Command {
+	var dbURL string
+	var externalUserID string
+	var slug string
+	var displayName string
+	var templateID string
+	var resourceTier string
+	var routeKey string
+	var modelProvider string
+	var modelName string
+	var skipProfile bool
+
+	cmd := &cobra.Command{
+		Use:   "insert",
+		Short: "Insert a tenant directly into the database (bypasses API)",
+		Long: `Insert a tenant and optionally its profile directly into PostgreSQL.
+This is useful for initial setup, recovery, or seeding without the API running.
+Requires a direct PostgreSQL connection string.`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if dbURL == "" {
+				return fmt.Errorf("--database-url is required")
+			}
+			if externalUserID == "" || slug == "" || displayName == "" {
+				return fmt.Errorf("--external-user-id, --slug, and --display-name are required")
+			}
+
+			db, err := sql.Open("pgx", dbURL)
+			if err != nil {
+				return fmt.Errorf("open database: %w", err)
+			}
+			defer db.Close()
+
+			if err := db.Ping(); err != nil {
+				return fmt.Errorf("ping database: %w", err)
+			}
+
+			var tenantID string
+			err = db.QueryRowContext(context.Background(),
+				`INSERT INTO tenants (external_user_id, slug, display_name, status)
+				 VALUES ($1, $2, $3, 'draft')
+				 ON CONFLICT (external_user_id) DO UPDATE SET display_name = EXCLUDED.display_name, updated_at = NOW()
+				 RETURNING id`,
+				externalUserID, slug, displayName).Scan(&tenantID)
+			if err != nil {
+				return fmt.Errorf("insert tenant: %w", err)
+			}
+
+			_, _ = fmt.Fprintf(os.Stdout, "tenant inserted: id=%s external_user_id=%s slug=%s\n", tenantID, externalUserID, slug)
+
+			if skipProfile {
+				return nil
+			}
+
+			if templateID == "" || resourceTier == "" || routeKey == "" || modelProvider == "" || modelName == "" {
+				_, _ = fmt.Fprintln(os.Stdout, "profile skipped (use --template-id, --tier, --route-key, --model-provider, --model-name to add profile)")
+				return nil
+			}
+
+			_, err = db.ExecContext(context.Background(),
+				`INSERT INTO tenant_profiles (tenant_id, template_id, resource_tier, route_key, model_provider, model_name)
+				 VALUES ($1, $2, $3, $4, $5, $6)
+				 ON CONFLICT (tenant_id) DO UPDATE SET
+				   template_id=EXCLUDED.template_id, resource_tier=EXCLUDED.resource_tier,
+				   route_key=EXCLUDED.route_key, model_provider=EXCLUDED.model_provider,
+				   model_name=EXCLUDED.model_name, updated_at=NOW()`,
+				tenantID, templateID, resourceTier, routeKey, modelProvider, modelName)
+			if err != nil {
+				return fmt.Errorf("insert profile: %w", err)
+			}
+
+			_, _ = fmt.Fprintf(os.Stdout, "profile inserted: tenant_id=%s\n", tenantID)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&dbURL, "database-url", "", "PostgreSQL connection string (e.g. postgres://user:pass@host:5432/db)")
+	cmd.Flags().StringVar(&externalUserID, "external-user-id", "", "External user ID")
+	cmd.Flags().StringVar(&slug, "slug", "", "Tenant slug (unique)")
+	cmd.Flags().StringVar(&displayName, "display-name", "", "Display name")
+	cmd.Flags().StringVar(&templateID, "template-id", "", "Template ID (UUID)")
+	cmd.Flags().StringVar(&resourceTier, "tier", "standard", "Resource tier")
+	cmd.Flags().StringVar(&routeKey, "route-key", "", "Route key (unique)")
+	cmd.Flags().StringVar(&modelProvider, "model-provider", "", "Model provider")
+	cmd.Flags().StringVar(&modelName, "model-name", "", "Model name")
+	cmd.Flags().BoolVar(&skipProfile, "skip-profile", false, "Skip profile insertion")
+
+	_ = cmd.MarkFlagRequired("database-url")
+	_ = cmd.MarkFlagRequired("external-user-id")
+	_ = cmd.MarkFlagRequired("slug")
+	_ = cmd.MarkFlagRequired("display-name")
+
 	return cmd
 }
 
